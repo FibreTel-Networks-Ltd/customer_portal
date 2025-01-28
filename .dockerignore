@@ -8,7 +8,7 @@
 .gitignore
 bootstrap/cache/**
 data
-docker-compose.yml
+docker-compose2.yml
 Dockerfile
 install.sh
 node_modules

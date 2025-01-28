@@ -1,48 +1,67 @@
 # Running the project locally
 
 This project uses Docker to run the backend and frontend services, you will need to have Docker installed on your machine to run this project.
-We also use MySQL, Redis, and Mailhog as services for the backend.
+We also use MySQL, Redis, and Mailpit as services for the backend.
 
 ## Prerequisites
-* Docker 
-* Node.js
+
+* Docker
 
 ## Getting started
 
-Setup the environment file, you can get the secrets from 1password
+Setup the environment file, you can get the secrets from 1Password
 
 ```shell
 copy .env.example .env
 ```
 
-Start the docker containers, this will take a while the first time you run it
-
-```shell
-docker compose up -d 
-```
-
 Install the dependencies
 
 ```shell
-docker compose exec php composer install
+docker run --rm \
+    -u "$(id -u):$(id -g)" \
+    -v "$(pwd):/var/www/html" \
+    -w /var/www/html \
+    laravelsail/php82-composer:latest \
+    composer install --ignore-platform-reqs
 ```
+
+Start the docker containers, this will take a while the first time you run it
+
+```shell
+./vendor/bin/sail up -d
+```
+
+You can create an alias to sail in your `~/.zshrc` or `~/.bashrc` to avoid having to type `./vendor/bin/sail` everytime.
+
+```shell 
+alias sail='sh $([ -f sail ] && echo sail || echo vendor/bin/sail)'
+```
+
 
 Run the migrations
 
 ```shell
-docker compose exec php php artisan migrate
+sail artisan migrate
 ```
 
 Install the frontend dependencies
 
 ```shell
-npm install
+sail npm install
 ```
+
+Compile the front-end
+```shell
+sail npm run dev
+```
+
+The project will be running on http://localhost/
 
 Generate the Sonar settings key
 
 ```shell
-docker compose exec php php artisan sonar:settingskey
+sail artisan sonar:settingskey
 ```
 
 Head to the [settings page](http://localhost/settings) and enter the generate key then fill up the form with the following values
@@ -50,7 +69,7 @@ Head to the [settings page](http://localhost/settings) and enter the generate ke
 | Field        | Value                           |
 |--------------|---------------------------------|
 | Application URL    | https://fibretel.sonar.software |
-| Mail Host | admin                           |
+| Mail Host | mailpit                           |
 | Mail Port | 1025                            |
 | Mail Username | admin                           |
 | Mail Password | admin                           |
