@@ -40,7 +40,8 @@
         "fakerphp/faker": "^1.9.1",
         "nunomaduro/collision": "^7.0",
         "spatie/laravel-ignition": "^2.0",
-        "nunomaduro/larastan": "^2.6"
+        "nunomaduro/larastan": "^2.6",
+        "laravel/sail": "^1.40"
     },
     "autoload": {
         "classmap": [
