@@ -25,6 +25,10 @@
           - ca-certificates
           - curl
           - gnupg
+          - acl
+          - vim
+          - python3-pymysql
+          - debconf-utils
         state: present
 
     - name: Add Caddy repository key
@@ -40,10 +44,9 @@
         filename: caddy
 
     - name: Add PHP repository
-      shell: |
-        add-apt-repository ppa:ondrej/php -y
-      args:
-        executable: /bin/bash
+      apt_repository:
+        repo: ppa:ondrej/php
+        state: present
 
     - name: Add MySQL APT repository
       shell: |
@@ -71,9 +74,7 @@
           - php8.2-xml
           - php8.2-intl
           - composer
-          - acl
-          - vim
-          - python3-pymysql
+
         state: present
 
     - name: Install Caddy
@@ -193,7 +194,7 @@
         path: /opt/customer_portal/deploy.php
         regexp: "set\\('branch',\\s*'[^']*'\\);"
         line: "set('branch', 'master');"
-      when: "'production' in inventory_hostname"
+      when: "'staging' not in inventory_hostname"
 
     - name: Set branch to 'staging' if "staging" in hostname
       lineinfile:
@@ -272,7 +273,8 @@
         mode: "0644"
 
     - name: Reload systemd daemon
-      command: systemctl daemon-reload
+      systemd:
+        daemon_reload: yes
 
     - name: Enable and start the Laravel queue worker
       service:
