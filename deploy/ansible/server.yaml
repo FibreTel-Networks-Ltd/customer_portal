@@ -1,0 +1,305 @@
+- name: Configure server
+  hosts: staging
+  become: yes
+  vars:
+    db_password: "{{ lookup('env', 'DB_PASSWORD') }}"
+    db_user: "admin"
+    db_name: "customer_portal"
+
+  tasks:
+
+    - name: Ensure DB_PASSWORD is set
+      fail:
+        msg: "DB_PASSWORD environment variable is required but not set!"
+      when: db_password is not defined or db_password == ''
+
+    - name: Update package lists
+      apt:
+        update_cache: yes
+
+    - name: Install required dependencies
+      apt:
+        name:
+          - software-properties-common
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - acl
+          - vim
+          - python3-pymysql
+          - debconf-utils
+        state: present
+
+    - name: Add Caddy repository key
+      apt_key:
+        url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+        keyring: /usr/share/keyrings/caddy-archive-keyring.gpg
+        state: present
+
+    - name: Add Caddy APT repository
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/caddy-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/ubuntu any-version main"
+        state: present
+        filename: caddy
+
+    - name: Add PHP repository
+      apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+
+    - name: Add MySQL APT repository
+      shell: |
+        wget https://dev.mysql.com/get/mysql-apt-config_0.8.33-1_all.deb -O /tmp/mysql-apt-config.deb
+        DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/mysql-apt-config.deb
+      args:
+        executable: /bin/bash
+
+    - name: Add Node.js 22 repository
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+      args:
+        executable: /bin/bash
+
+    - name: Install libraries and php
+      apt:
+        name:
+          - php8.2
+          - php8.2-fpm
+          - php8.2-bcmath
+          - php8.2-curl
+          - php8.2-mbstring
+          - php8.2-mysql
+          - php8.2-zip
+          - php8.2-xml
+          - php8.2-intl
+          - composer
+
+        state: present
+
+    - name: Install Caddy
+      apt:
+        name:
+          - caddy
+        state: present
+
+    - name: Install Redis
+      apt:
+        name:
+          - redis-server
+        state: present
+
+    - name: Install Node
+      apt:
+        name:
+          - nodejs
+        state: present
+
+    - name: Enable and start services
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - php8.2-fpm
+        - caddy
+        - redis
+
+    - name: Preseed MySQL Root Password
+      debconf:
+          name: "mysql-server"
+          question: "mysql-server/root_password"
+          value: "{{ db_password }}"
+          vtype: "password"
+
+    - name: Preseed MySQL Root Password Confirmation
+      debconf:
+        name: "mysql-server"
+        question: "mysql-server/root_password_again"
+        value: "{{ db_password }}"
+        vtype: "password"
+
+    - name: Install MySQL Server
+      apt:
+        name: mysql-server
+        state: present
+        update_cache: yes
+
+    - name: Ensure MySQL Service is Running
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Remove Anonymous Users
+      mysql_user:
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        name: ''
+        host_all: yes
+        state: absent
+      become: yes
+      become_user: root
+
+    - name: Remove Test Database
+      mysql_db:
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        name: test
+        state: absent
+      become: yes
+      become_user: root
+
+    - name: Create Application Database
+      mysql_db:
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        name: "{{ db_name }}"
+        state: present
+      become: yes
+      become_user: root
+
+    - name: Create Admin User and Grant Privileges
+      command: >
+        mysql -u root -e "
+        CREATE USER IF NOT EXISTS 'admin'@'localhost' IDENTIFIED WITH caching_sha2_password BY '{{ db_password }}';
+        GRANT ALL PRIVILEGES ON {{ db_name }}.* TO 'admin'@'localhost' WITH GRANT OPTION;
+        FLUSH PRIVILEGES;"
+      become: yes
+
+    - name: Install deployer
+      shell: |
+          curl -O https://deployer.org/releases/v7.5.8/deployer.phar
+          mv deployer.phar /usr/local/bin/dep
+          chmod +x /usr/local/bin/dep
+
+    - name: Ensure directories exist and set permissions
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+      loop:
+        - /opt/customer_portal/shared
+        - /var/www/.cache
+        - /var/www/.ansible/tmp
+
+    - name: Copy deploy file to the web server
+      copy:
+        src: deploy.php
+        dest: /opt/customer_portal/deploy.php
+        owner: www-data
+        group: www-data
+
+    - name: Set branch to 'master' if "production" in hostname
+      lineinfile:
+        path: /opt/customer_portal/deploy.php
+        regexp: "set\\('branch',\\s*'[^']*'\\);"
+        line: "set('branch', 'master');"
+      when: "'staging' not in inventory_hostname"
+
+    - name: Set branch to 'staging' if "staging" in hostname
+      lineinfile:
+        path: /opt/customer_portal/deploy.php
+        regexp: "set\\('branch',\\s*'[^']*'\\);"
+        line: "set('branch', 'staging');"
+      when: "'staging' in inventory_hostname"
+
+    - name: Download .env.example from GitHub
+      get_url:
+        url: "https://raw.githubusercontent.com/FibreTel-Networks-Ltd/customer_portal/master/.env.example"
+        dest: /opt/customer_portal/shared/.env
+        mode: '0644'
+        owner: www-data
+        group: www-data
+
+    - name: Update database credentials in .env
+      shell: |
+        sed -i 's/^DB_HOST=.*/DB_HOST=127.0.0.1/' /opt/customer_portal/shared/.env
+        sed -i 's/^DB_DATABASE=.*/DB_DATABASE=customer_portal/' /opt/customer_portal/shared/.env
+        sed -i 's/^DB_USERNAME=.*/DB_USERNAME=admin/' /opt/customer_portal/shared/.env
+        sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD={{ db_password }}/" /opt/customer_portal/shared/.env
+        sed -i 's/^REDIS_HOST=.*/REDIS_HOST=127.0.0.1/' /opt/customer_portal/shared/.env
+      become: yes
+      become_user: www-data
+
+    - name: Run deployment for the first time
+      command: dep deploy
+      args:
+        chdir: /opt/customer_portal
+      become: yes
+      become_user: www-data
+
+    - name: Generate application key
+      command: php artisan key:generate
+      args:
+        chdir: /opt/customer_portal/current
+      become: yes
+      become_user: www-data
+
+    - name: Create symlink from /opt/customer_portal/current to /var/www/html
+      file:
+        src: /opt/customer_portal/current
+        dest: /var/www/html
+        state: link
+        force: yes
+
+    - name: Configure Caddy for Laravel
+      copy:
+        dest: /etc/caddy/Caddyfile
+        content: |
+          account.fibretel.ca {
+              root * /var/www/html/public
+              php_fastcgi * unix//run/php/php8.2-fpm.sock {
+                resolve_root_symlink
+              }
+              file_server
+              encode gzip
+              tls {
+                  on_demand
+              }
+          }
+      notify: Restart Caddy
+
+    - name: Add cron job to run dep deploy every 5 minutes
+      cron:
+        name: "dep_deploy"
+        user: "www-data"
+        minute: "*/5"
+        job: "cd /opt/customer_portal && /usr/local/bin/dep deploy >> /var/log/dep_deploy.log 2>&1"
+
+    - name: Create systemd service for Laravel queue worker
+      copy:
+        dest: /etc/systemd/system/laravel-queue.service
+        src: laravel-queue.service
+        mode: "0644"
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start the Laravel queue worker
+      service:
+        name: laravel-queue
+        state: started
+        enabled: yes
+
+    - name: Configure log rotation for dep_deploy and laravel-queue logs
+      copy:
+        dest: /etc/logrotate.d/customer_portal
+        content: |
+          /var/log/dep_deploy.log /var/log/laravel-queue.log {
+            daily
+            rotate 7
+            compress
+            missingok
+            notifempty
+            create 644 www-data www-data
+          }
+        owner: root
+        group: root
+        mode: "0644"
+
+  handlers:
+    - name: Restart Caddy
+      systemd:
+        name: caddy
+        state: restarted

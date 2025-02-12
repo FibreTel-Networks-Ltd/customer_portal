@@ -1,0 +1,15 @@
+[Unit]
+Description=Laravel Queue Worker
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/customer_portal/current
+ExecStart=/usr/bin/php /opt/customer_portal/current/artisan queue:work --sleep=3 --tries=3
+Restart=always
+StandardOutput=append:/var/log/laravel-queue.log
+StandardError=append:/var/log/laravel-queue.log
+
+[Install]
+WantedBy=multi-user.target
