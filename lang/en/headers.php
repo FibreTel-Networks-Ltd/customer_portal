@@ -34,4 +34,5 @@ return [
     'autopay' => 'Autopay',
     'goCardLess' => 'GoCardless',
     'account' => 'Account',
+    'wifi' => 'WiFI Settings',
 ];

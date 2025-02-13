@@ -10,9 +10,9 @@ use Spatie\Csp\Value;
 
 class SonarCustomerPortalPolicy extends Basic
 {
-	public function configure()
-	{
-  		$this
+    public function configure()
+    {
+        $this
             // Duplicated from `Basic` because nonce overrides
             // the `unsafe-inline` for styles (see below) and
             // there's no `removeNonceForDirective`.
@@ -37,34 +37,45 @@ class SonarCustomerPortalPolicy extends Basic
                 'https://fonts.gstatic.com',
             ])
             ->addNonceForDirective(Directive::SCRIPT)
-
             ->addDirective(Directive::FRAME, [
                 'self',
                 'js.stripe.com',
             ])
-
             ->addDirective(Directive::FRAME_ANCESTORS, Keyword::NONE)
-
             ->addDirective(Directive::FORM_ACTION, [
                 'self',
                 'www.paypal.com',
             ])
-
             ->addDirective(Directive::UPGRADE_INSECURE_REQUESTS, Value::NO_VALUE)
-
             ->addDirective(Directive::SCRIPT, [
                 'self',
                 'js.stripe.com',
             ])
-
-			->addDirective(Directive::STYLE, [
-				'self',
+            ->addDirective(Directive::STYLE, [
+                'self',
                 'unsafe-inline', // Required for TinyMCE https://www.tiny.cloud/docs/tinymce/6/tinymce-and-csp/
-			])
-
+            ])
             ->addDirective(Directive::CONNECT, [
                 'self',
                 'api.stripe.com',
             ]);
+
+        if (app()->environment('local')) {
+            // Allow hot module reloading
+            unset($this->directives[Directive::UPGRADE_INSECURE_REQUESTS]);
+            $this->addDirective(Directive::IMG, [
+                Keyword::SELF,
+                'http://0.0.0.0:3000',
+                Scheme::DATA,
+            ]);
+
+            $this
+                ->addDirective(Directive::STYLE, [
+                    'self',
+                    'data:',
+                    "'unsafe-inline'",
+                    'http://0.0.0.0:3000',
+                ]);
+        }
     }
 }

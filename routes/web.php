@@ -7,6 +7,7 @@ use App\Http\Controllers\ContractController;
 use App\Http\Controllers\DataUsageController;
 use App\Http\Controllers\GoCardlessController;
 use App\Http\Controllers\LanguageController;
+use App\Http\Controllers\NetworkController;
 use App\Http\Controllers\PayPalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StripeController;
@@ -119,6 +120,12 @@ Route::middleware('language')->group(function () {
         Route::prefix('contracts')->middleware('contracts')->group(function () {
             Route::get('/', [ContractController::class, 'index']);
             Route::get('/{contracts}', [ContractController::class, 'downloadContractPdf']);
+        });
+
+
+        Route::prefix('network')->group(function () {
+            Route::get('/wifi', [NetworkController::class, 'wifi']);
+            Route::post('/network/update/{uuid}', [NetworkController::class, 'updateNetwork'])->name('network.update');
         });
     });
 

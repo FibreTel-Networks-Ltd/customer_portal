@@ -46,3 +46,49 @@
     });
 </script>
 @yield('additionalJS')
+
+
+<script nonce="{{ csp_nonce() }}">
+    document.addEventListener('DOMContentLoaded', function () {
+        $(function () {
+            $('[data-toggle="tooltip"]').tooltip();
+        });
+
+        // Generic copy behavior for elements with the "data-copy" attribute
+        const copyIcons = document.querySelectorAll('[data-copy]');
+        copyIcons.forEach(icon => {
+            icon.addEventListener('click', function () {
+                const textToCopy = this.getAttribute('data-copy');
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    // Dynamically create and style the feedback element
+                    const feedback = document.createElement('div');
+                    feedback.innerText = '{{ __('messages.copiedToClipboard') }}';
+                    feedback.style.backgroundColor = 'var(--success-color)';
+                    feedback.style.color = '#fff';
+                    feedback.style.padding = '5px 5px';
+                    feedback.style.borderRadius = '4px';
+                    feedback.style.fontSize = '0.8rem';
+                    feedback.style.position = 'absolute';
+                    feedback.style.minWidth = '150px';
+                    feedback.style.whiteSpace = 'nowrap';
+                    feedback.style.zIndex = '1000';
+                    // Position feedback next to the icon
+                    feedback.style.top = (this.offsetTop) + 'px';
+                    feedback.style.left = (this.offsetLeft + this.offsetWidth + 10) + 'px';
+                    feedback.style.opacity = '1';
+                    feedback.style.transition = 'opacity 0.5s ease';
+
+                    this.parentNode.appendChild(feedback);
+
+                    // Fade out and remove the feedback element
+                    setTimeout(() => {
+                        feedback.style.opacity = '0';
+                        setTimeout(() => {
+                            feedback.remove();
+                        }, 500);
+                    }, 1500);
+                });
+            });
+        });
+    });
+</script>

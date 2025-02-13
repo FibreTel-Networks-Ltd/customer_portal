@@ -1,6 +1,7 @@
 * {
 --primary: #2c7be5;
 --font: 'CircularStd', sans-serif;
+	--success-color: #15d676;
 }
 
 *,
@@ -11569,6 +11570,12 @@ button:focus {
 		margin-right: 250px;
 	}
 }
+
+@keyframes fadeOut {
+	0% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
 .custom-checkbox-toggle {
 	width: 3rem;
 	height: 1.5rem;
@@ -11621,6 +11628,7 @@ button:focus {
 	animation-duration: 1s;
     transition: opacity .3s ease-out;
 }
+
 .alerts-success {
 	position: absolute;
 	z-index: 9999;
@@ -11636,9 +11644,8 @@ button:focus {
 	line-height: 2.5;
 	overflow: hidden;
 	opacity: .88;
-	animation: errorDown 1;
 	animation-duration: 1s;
-    transition: opacity .3s ease-out;
+	animation: fadeOut 1s ease-out 3s forwards;
 }
 
 .error-help-block {

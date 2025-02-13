@@ -15,3 +15,11 @@ mix
   .js('resources/js/app.js', 'public/js')
   .sass('resources/sass/app.scss', 'public/css')
   .sourceMaps(true, 'source-map');
+
+
+mix.options({
+    hmrOptions: {
+        host: '0.0.0.0',
+        port: process.env.MIX_HMR_PORT || 8080,
+    }
+});

@@ -11,6 +11,7 @@ services:
         ports:
             - '${APP_PORT:-80}:80'
             - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+            - "3000:3000"
         environment:
             WWWUSER: '${WWWUSER}'
             LARAVEL_SAIL: 1
@@ -19,6 +20,7 @@ services:
             IGNITION_LOCAL_SITES_PATH: '${PWD}'
         volumes:
             - '.:/var/www/html'
+            - ./composer-config:/home/sail/.config/composer
         networks:
             - sail
         depends_on:
@@ -81,4 +83,6 @@ volumes:
     sail-mysql:
         driver: local
     sail-redis:
+        driver: local
+    composer-config:
         driver: local
